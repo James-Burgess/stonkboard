@@ -48,7 +48,34 @@
         if (settings) {
           jsonSettings.innerHTML = JSON.stringify(JSON.parse(settings), null, 2)
         } else {
-          jsonSettings.innerHTML = ''
+          jsonSettings.innerHTML = '{\n' +
+                  '  "key": "<IEX_SECRECT_KEY>",\n' +
+                  '  "portfolio": [\n' +
+                  '    {\n' +
+                  '      "name": "Stonks (can change)",\n' +
+                  '      "symbols": {\n' +
+                  '        "<SYMBOL>": {\n' +
+                  '          "share": <number_of_shares>,\n' +
+                  '          "buy": <price_for_shares>\n' +
+                  '        },\n' +
+                  '        "<SYMBOL>": {\n' +
+                  '          "share": <number_of_shares>,\n' +
+                  '          "buy": <price_for_shares>\n' +
+                  '        }\n' +
+                  '    },\n' +
+                  '    {\n' +
+                  '      "name": "Stonks 2 (can delete/add)",\n' +
+                  '      "symbols": {\n' +
+                  '        "<SYMBOL>": {\n' +
+                  '          "share": <number_of_shares>,\n' +
+                  '          "buy": <price_for_shares>\n' +
+                  '        },\n' +
+                  '        "<SYMBOL>": {\n' +
+                  '          "share": <number_of_shares>,\n' +
+                  '          "buy": <price_for_shares>\n' +
+                  '        },\n' +
+                  '    }\n' +
+                  '}'
         }
 
         settingsModal.classList.toggle('is-active')
