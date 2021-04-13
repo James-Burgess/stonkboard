@@ -4,303 +4,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
     <title>Stonks Dashboard</title>
-
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Helvetica Neue", Arial, sans-serif;
-            margin: 0;
-        }
-
-        .grid[data-columns]::before {
-            content: '5 .column.size-1of5';
-        }
-
-        @media screen and (max-width: 580px){
-            .grid[data-columns]::before {
-                content: '1 .column.size-1of1';
-            }
-        }
-
-        @media screen and (min-width: 581px) and (max-width: 1023px) {
-            .grid[data-columns]::before {
-                content: '3 .column.size-1of3';
-            }
-        }
-
-        @media screen and (min-width: 1024px) {
-            .grid[data-columns]::before {
-                content: '5 .column.size-1of5';
-            }
-        }
-
-        .column {
-            float: left;
-        }
-
-        .size-1of1 {
-            width: 100%;
-        }
-
-        .size-1of3 {
-            width: 33.333%;
-        }
-
-        .size-1of5 {
-            width: 20%;
-        }
-
-        .symbol-box h1 a {
-            color: #000000;
-            text-decoration: none;
-            text-transform: uppercase;
-        }
-
-        .symbol-box h1 a:hover {
-            text-decoration: underline;
-        }
-
-        .portfolio-container {
-            margin-bottom: 5em;
-        }
-
-        .symbol-box h1 {
-            font-weight: 100;
-            font-size: 3.5em;
-            line-height: 1em;
-            margin: 0;
-            padding: .5em 0 0 0;
-        }
-
-        .symbol-box .stock-price {
-            font-weight: 800;
-            font-size: 2.5em;
-            padding: .5em 15px;
-        }
-
-        .symbol-box .stock-change, .symbol-box .stock-change-pct, .stock-value {
-            font-size: 1.5em;
-            padding: .5em 15px;
-        }
-
-        .symbol-box .stock-mkt-cap {
-            font-weight: 200;
-            font-size: 0.7em;
-            padding: 1.5em 15px;
-        }
-
-        .portfolio-name {
-            color: #d0d0d0;
-            font-size: 4em;
-            font-weight: 800;
-            margin: 0;
-        }
-
-        .stock-price, .stock-change, .stock-change-pct, .stock-mkt-cap, .stock-value {
-            margin: 0;
-        }
-
-        .updated-timestamp {
-            color: #aaaaaa;
-            font-size: .7em;
-            margin-top: 2em;
-            text-align: center;
-        }
-
-        .attribution {
-            display: block;
-            color: #aaaaaa;
-            font-size: .7em;
-            text-align: center;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.2/css/bulma.min.css">
   </head>
 
   <body>
+    <div class="settings">
+      <ion-icon name="settings-outline" size="large" onclick="toggleModal()"></ion-icon>
+    </div>
+    <div class="block"></div>
     <div class="container"></div>
 
-    <p class="updated-timestamp"></p>
+    <div class="modal" id="settings-modal">
+      <div class="modal-background" onclick="toggleModal()"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">Stonkboard Settings</p>
+          <button class="delete" aria-label="close" onclick="toggleModal()"></button>
+        </header>
+        <section class="modal-card-body">
+          <textarea rows="500" class="textarea is-info" id="json-settings" placeholder="Place portfolio settings .json"></textarea>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="button is-success" onclick="updateSettings()">Save changes</button>
+          <button class="button" onclick="toggleModal()">Cancel</button>
+        </footer>
+      </div>
+    </div>
+
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/ionicons@5.4.0/dist/ionicons.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/main.js"></script>
+
     <script>
-      'use strict';
+      let settingsModal = document.getElementById('settings-modal')
+      let jsonSettings = document.getElementById('json-settings')
 
-      const PORTFOLIOS = [
-        {'name': 'Watch', 'symbols': ['PFE', 'MSFT', 'AAPL', 'SOS', 'AMA', 'GME'], 'spread': []}
-      ];
+      function toggleModal() {
+        let settings = localStorage.getItem('settings') || false
 
-      const REFRESH_SECONDS = 10;
-      const BATCH_SIZE = 100;
-      const BASE_URL = 'https://cloud.iexapis.com/stable/stock/market/batch';
-      const API_KEY = 'your key'
-
-      let symbols = [];
-      let containerDiv = document.querySelector('.container');
-      let updatedDiv = document.querySelector('.updated-timestamp');
-      let hist = {};
-      let spread = {};
-
-      PORTFOLIOS.forEach((p, i) => addPortfolio(p, i === 0));
-      symbols = symbols.filter((s, i) => symbols.indexOf(s) === i);
-      updateData('addTitle');
-      setInterval(updateData, REFRESH_SECONDS * 1000);
-
-      function addPortfolio(portfolio, includeHeader) {
-        let bodyHtml = portfolio.symbols.map((symbol, idx) => {
-          symbol = symbol.toUpperCase();
-          symbols.push(symbol);
-          hist[symbol] = []
-          spread[symbol] = {'val': portfolio.spread[idx] || 0, 'pfl': portfolio.name}
-
-          let html = `
-            <div class="symbol-box" data-symbol="${symbol}">
-                <h1><a href="${symbolUrl(symbol)}" target="_blank">${symbol}</a></h1>
-                <h2 class="stock-price"></h2>
-                <h3 class="stock-change"></h3>
-                <h3 class="stock-change-pct"></h3>
-                <h3 class="stock-value"></h3>
-                <h4 class="stock-mkt-cap"></h4>
-            </div>
-          `;
-          return html;
-        }).join('');
-
-        let portfolioDiv = document.createElement('div');
-        portfolioDiv.classList.add('portfolio-container');
-
-        portfolioDiv.innerHTML = `
-            <h1 class="portfolio-name">${portfolio.name} <span id="${portfolio.name}-value">$</span></h1>
-            <div class="grid" data-columns>${bodyHtml}</div>
-            <canvas id="${portfolio.name}-chart" width="100" height="40"></canvas>
-            <div style="clear: both"></div>
-        `;
-
-        containerDiv.appendChild(portfolioDiv);
-
-        var ctx = document.getElementById('Stonks-chart').getContext('2d');
-        var myChart = new Chart(ctx, {
-            type: 'line',
-            datasets: [{
-                label: '# of Votes',
-                datasets: Object.keys(spread).map((k, v) => {return {label: k, data: spread[k]}}),
-            }],
-            options: {
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
-            }
-        });
-      }
-
-      function updateData(addTitle) {
-        let numberOfBatches = Math.ceil(symbols.length / BATCH_SIZE);
-
-        for (let i = 0; i < numberOfBatches; i++) {
-          let symbolsBatch = symbols.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
-          updateDataForBatch(symbolsBatch, addTitle);
-        }
-
-        updatedDiv.innerHTML = `Updated ${(new Date()).toLocaleString()}`;
-      }
-
-      function updateDataForBatch(symbols, addTitle) {
-        let filters = ['latestPrice', 'change', 'changePercent', 'marketCap', 'ytdChange', 'companyName', 'week52High', 'week52Low'];
-        let url = `${BASE_URL}?token=${API_KEY}&types=quote&symbols=${symbols.join(',')}&filter=${filters.join(',')}`;
-
-        let total = 0
-
-        fetch(url).then(response => response.json()).then(json => {
-          symbols.forEach(symbol => {
-            let data = json[symbol];
-            if (typeof(data) === 'undefined') return;
-
-            let formattedPrice = formatQuote(data.quote.latestPrice);
-            let formattedChange = data.quote.change.toLocaleString('en', {'minimumFractionDigits': 2});
-            let formattedChangePercent = (data.quote.changePercent * 100).toFixed(2) + '%';
-            let formattedChangePercentYr = (data.quote.ytdChange * 100).toFixed(2) + '%';
-            let formattedValue = '$'+(spread[symbol].val * data.quote.latestPrice).toFixed(2);
-            let formattedMarketCap = formatMarketCap(data.quote.marketCap);
-            let rgbColor = data.quote.changePercent > 0 ? '0,255,0' : '255,0,0';
-            let rgbOpacity = Math.min(Math.abs(data.quote.changePercent) * 20, 1);
-
-            hist[symbol].push(data.quote.latestPrice) //  , ...hist[symbol]]
-            total += spread[symbol].val * data.quote.latestPrice
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-price`).forEach(e => {
-              e.innerHTML = `${formattedPrice}`;
-              e.setAttribute('style', `background-color: rgba(${rgbColor}, ${rgbOpacity})`);
-            });
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-change`).forEach(e => {
-              e.innerHTML = `Change: ${formattedChange}`;
-              e.setAttribute('style', `background-color: rgba(${rgbColor}, ${rgbOpacity})`);
-            });
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-change-pct`).forEach(e => {
-              e.innerHTML = `Day: ${formattedChangePercent}`;
-              e.setAttribute('style', `background-color: rgba(${rgbColor}, ${rgbOpacity})`);
-            });
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-value`).forEach(e => {
-              e.innerHTML = `value: ${formattedValue}`;
-              e.setAttribute('style', `background-color: rgba(${rgbColor}, ${rgbOpacity})`);
-            });
-
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-mkt-cap`).forEach(e => {
-              e.innerHTML = `${formattedMarketCap}`;
-              e.setAttribute('style', `background-color: rgba(${rgbColor}, ${rgbOpacity})`);
-            });
-
-            document.querySelectorAll(`[data-symbol="${symbol}"] .stock-symbol a`).forEach(e => {
-              e.setAttribute('title', data.quote.companyName);
-            });
-          });
-
-          document.getElementById('Stonks-value').innerHTML = '$' + total.toFixed(2)
-          console.table(hist)
-
-//           chart.data.datasets.forEach((dataset) => {
-          //     dataset.data.push(data);
-          // });
-          // chart.update();
-          //
-          //
-        });
-
-
-    }
-
-      function symbolUrl(symbol) {
-        return `https://finance.yahoo.com/quote/${symbol.replace('.', '-')}`;
-      }
-
-      function formatQuote(value) {
-        let options = {
-          'minimumFractionDigits': 2,
-          'style': 'decimal'
-        };
-        return value.toLocaleString('en', options);
-      }
-
-      function formatMarketCap(marketCap) {
-        let value, suffix;
-        if (marketCap >= 1e12) {
-          value = marketCap / 1e12;
-          suffix = 'T';
-        } else if (marketCap >= 1e9) {
-          value = marketCap / 1e9;
-          suffix = 'B';
+        if (settings) {
+          jsonSettings.innerHTML = JSON.stringify(JSON.parse(settings), null, 2)
         } else {
-          value = marketCap / 1e6;
-          suffix = 'M';
+          jsonSettings.innerHTML = ''
         }
 
-        let digits = value < 10 ? 2 : 1;
+        settingsModal.classList.toggle('is-active')
+      }
 
-        return 'Market Cap: $' + value.toFixed(digits) + suffix;
+
+      function updateSettings() {
+        let settings = JSON.parse(jsonSettings.value)
+        localStorage.setItem('settings', JSON.stringify(settings))
+        document.querySelector('.container').innerHTML = ''
+        setup(settings)
+        toggleModal()
+      }
+
+      let settings = localStorage.getItem('settings') || false
+
+      if (settings) {
+        setup(JSON.parse(settings))
+      } else {
+        toggleModal()
       }
     </script>
-    <script src="js/salvattore.js"></script>
   </body>
 </html>
